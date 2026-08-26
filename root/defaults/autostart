@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec env XDG_CACHE_HOME=/opt /opt/camoufox-venv/bin/python /app/server_entrypoint.py

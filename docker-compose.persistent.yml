@@ -1,0 +1,36 @@
+services:
+  camoufox:
+    build:
+      context: .
+      args:
+        DEBIAN_MIRROR: https://mirrors.aliyun.com/debian
+        DEBIAN_SECURITY_MIRROR: https://mirrors.aliyun.com/debian-security
+        PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Asia/Shanghai
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      PIXELFLUX_WAYLAND: "false"
+      CAMOUFOX_PORT: "${CAMOUFOX_PORT:-1234}"
+      CAMOUFOX_PERSISTENT_CONTEXT: "true"
+      CAMOUFOX_USER_DATA_DIR: /data/camoufox-profile
+    volumes:
+      - ./config:/config
+      - camoufox-profile:/data/camoufox-profile
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3001"
+      - "127.0.0.1:${CAMOUFOX_HOST_PORT:-1234}:${CAMOUFOX_PORT:-1234}"
+    shm_size: "2gb"
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /config/.cache/camoufox-server/ws_endpoint && python3 -c 'import os,socket; socket.create_connection((\"127.0.0.1\", int(os.environ[\"CAMOUFOX_PORT\"])), 2).close()'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  camoufox-profile:
