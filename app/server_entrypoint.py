@@ -18,6 +18,7 @@ from app.camoufox_server import (  # noqa: E402
     CamoufoxServerTerminated,
     DEFAULT_EXECUTABLE,
     launch_camoufox_server,
+    normalize_websocket_path,
     validate_profile_options,
 )
 
@@ -47,11 +48,16 @@ def positive_port(value: str) -> int:
 def resolve_settings(
     args: argparse.Namespace,
     environment: dict[str, str] | None = None,
-) -> tuple[int, bool, str | None, bool]:
+) -> tuple[int, str | None, bool, str | None, bool]:
     env = os.environ if environment is None else environment
     port = args.port
     if port is None:
         port = positive_port(env.get("CAMOUFOX_PORT", "1234"))
+
+    ws_path = args.ws_path
+    if ws_path is None:
+        configured_path = env.get("CAMOUFOX_WS_PATH", "")
+        ws_path = normalize_websocket_path(configured_path) if configured_path else None
 
     persistent = args.persistent_context
     if persistent is None:
@@ -67,7 +73,7 @@ def resolve_settings(
     debug = args.debug
     if debug is None:
         debug = parse_boolean(env.get("CAMOUFOX_DEBUG", "false"), "CAMOUFOX_DEBUG")
-    return port, persistent, user_data_dir, debug
+    return port, ws_path, persistent, user_data_dir, debug
 
 
 def find_patched_javascript() -> Path | None:
@@ -118,6 +124,7 @@ def log_diagnostics(persistent: bool, profile: str | None) -> None:
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Launch the Camoufox Playwright server")
     parser.add_argument("--port", type=positive_port, default=None)
+    parser.add_argument("--ws-path", type=normalize_websocket_path, default=None)
     parser.add_argument(
         "--persistent-context",
         action=argparse.BooleanOptionalAction,
@@ -135,11 +142,12 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGTERM, request_shutdown)
     args = create_parser().parse_args(argv)
     try:
-        port, persistent, user_data_dir, debug = resolve_settings(args)
+        port, ws_path, persistent, user_data_dir, debug = resolve_settings(args)
         profile = validate_profile_options(persistent, user_data_dir)
         print("[camoufox] starting", flush=True)
         print(f"[camoufox] display={os.environ.get('DISPLAY', '')}", flush=True)
         print(f"[camoufox] mode={'persistent' if profile else 'ephemeral'}", flush=True)
+        print(f"[camoufox] ws_path={ws_path or 'random'}", flush=True)
         if profile:
             print(f"[camoufox] profile={profile}", flush=True)
         if debug:
@@ -149,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
                 launch_camoufox_server(
                     headless=False,
                     port=port,
+                    ws_path=ws_path,
                     persistent_context=persistent,
                     user_data_dir=str(profile) if profile else None,
                 )

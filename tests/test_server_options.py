@@ -12,6 +12,7 @@ from app.camoufox_server import (
     build_browser_environment,
     build_child_environment,
     camoufox_build_cache_environment,
+    normalize_websocket_path,
     validate_profile_options,
 )
 from app.server_entrypoint import parse_boolean, resolve_settings
@@ -130,12 +131,23 @@ class ProfileOptionTests(unittest.TestCase):
         self.assertEqual(environment["CAMOUFOX_TEST_OVERRIDE"], "set")
         self.assertIn("PATH", environment)
 
+    def test_websocket_path_is_normalized(self) -> None:
+        self.assertEqual(normalize_websocket_path("agents/camoufox"), "/agents/camoufox")
+        self.assertEqual(normalize_websocket_path("/fixed"), "/fixed")
+
+    def test_invalid_websocket_paths_are_rejected(self) -> None:
+        for value in ("", "ws://localhost/path", "/path?token=value", "/with space"):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    normalize_websocket_path(value)
+
 
 class EntrypointOptionTests(unittest.TestCase):
     @staticmethod
     def arguments(**overrides: object) -> argparse.Namespace:
         defaults = {
             "port": None,
+            "ws_path": None,
             "persistent_context": None,
             "user_data_dir": None,
             "debug": None,
@@ -145,24 +157,26 @@ class EntrypointOptionTests(unittest.TestCase):
 
     def test_environment_defaults_to_ephemeral(self) -> None:
         settings = resolve_settings(self.arguments(), {})
-        self.assertEqual(settings, (1234, False, None, False))
+        self.assertEqual(settings, (1234, None, False, None, False))
 
     def test_environment_enables_persistent_mode(self) -> None:
         settings = resolve_settings(
             self.arguments(),
             {
                 "CAMOUFOX_PORT": "4321",
+                "CAMOUFOX_WS_PATH": "agents/camoufox",
                 "CAMOUFOX_PERSISTENT_CONTEXT": "true",
                 "CAMOUFOX_USER_DATA_DIR": "/data/profile",
                 "CAMOUFOX_DEBUG": "yes",
             },
         )
-        self.assertEqual(settings, (4321, True, "/data/profile", True))
+        self.assertEqual(settings, (4321, "/agents/camoufox", True, "/data/profile", True))
 
     def test_cli_overrides_environment(self) -> None:
         settings = resolve_settings(
             self.arguments(
                 port=5678,
+                ws_path="/cli-path",
                 persistent_context=False,
                 user_data_dir=None,
                 debug=False,
@@ -176,9 +190,9 @@ class EntrypointOptionTests(unittest.TestCase):
         )
         # An env profile without persistent mode remains visible and is rejected
         # later by the same profile option validator.
-        self.assertEqual(settings, (5678, False, "/data/profile", False))
+        self.assertEqual(settings, (5678, "/cli-path", False, "/data/profile", False))
         with self.assertRaisesRegex(ValueError, "requires persistent_context=True"):
-            validate_profile_options(settings[1], settings[2])
+            validate_profile_options(settings[2], settings[3])
 
     def test_invalid_boolean_fails(self) -> None:
         with self.assertRaisesRegex(ValueError, "must be true or false"):

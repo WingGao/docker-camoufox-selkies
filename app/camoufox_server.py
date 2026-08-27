@@ -84,6 +84,21 @@ def validate_profile_options(
     return path
 
 
+def normalize_websocket_path(value: str) -> str:
+    """Validate and normalize a BrowserServer WebSocket URL path."""
+    if not value:
+        raise ValueError("WebSocket path must not be empty")
+    if len(value) > 2048:
+        raise ValueError("WebSocket path must not exceed 2048 characters")
+    if "://" in value or any(character.isspace() for character in value):
+        raise ValueError("WebSocket path must be a URL path, not a URL")
+    if any(character in value for character in ("?", "#", "\\")):
+        raise ValueError("WebSocket path must not contain ?, #, or backslash")
+    if any(ord(character) < 0x20 or ord(character) == 0x7F for character in value):
+        raise ValueError("WebSocket path must not contain control characters")
+    return value if value.startswith("/") else f"/{value}"
+
+
 def build_child_environment(
     persistent_context: bool,
     user_data_dir: str | os.PathLike[str] | None,
@@ -122,6 +137,7 @@ def launch_camoufox_server(
     *,
     persistent_context: bool = False,
     user_data_dir: str | os.PathLike[str] | None = None,
+    ws_path: str | None = None,
     **kwargs: Any,
 ) -> NoReturn:
     """Launch Camoufox through Playwright ``BrowserType.launchServer``.
@@ -150,6 +166,8 @@ def launch_camoufox_server(
     kwargs["env"] = build_browser_environment(supplied_browser_env)
     kwargs.setdefault("headless", False)
     kwargs.setdefault("host", "0.0.0.0")
+    if ws_path is not None:
+        kwargs["ws_path"] = normalize_websocket_path(ws_path)
     if kwargs.get("executable_path") is None:
         kwargs["executable_path"] = str(DEFAULT_EXECUTABLE)
 

@@ -1,7 +1,9 @@
 config/
 profile/
+camoufox-profile/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
 htmlcov/
+docker-compose.local.yml

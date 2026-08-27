@@ -106,6 +106,7 @@ chmod 700 profile
 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `CAMOUFOX_PORT` | `1234` | BrowserServer 容器内端口，范围 1-65535 |
+| `CAMOUFOX_WS_PATH` | 空 | 固定 WebSocket path；空值表示每次启动随机生成 |
 | `CAMOUFOX_PERSISTENT_CONTEXT` | `false` | 是否启用固定 profile |
 | `CAMOUFOX_USER_DATA_DIR` | 空 | 固定 profile 的绝对路径 |
 | `CAMOUFOX_DEBUG` | `false` | 输出版本、可执行文件、DISPLAY 和 patch 路径诊断 |
@@ -137,6 +138,7 @@ XDG_CACHE_HOME=/opt /opt/camoufox-venv/bin/python /app/server_entrypoint.py --po
 
 XDG_CACHE_HOME=/opt /opt/camoufox-venv/bin/python /app/server_entrypoint.py \
   --port 1234 \
+  --ws-path /agents/camoufox \
   --persistent-context \
   --user-data-dir /data/camoufox-profile
 ```
@@ -149,6 +151,7 @@ from app.camoufox_server import launch_camoufox_server
 launch_camoufox_server(
     headless=False,
     port=1234,
+    ws_path="/agents/camoufox",
     persistent_context=True,
     user_data_dir="/data/camoufox-profile",
 )
@@ -163,6 +166,14 @@ launch_camoufox_server(
 ```
 
 同一地址也会写入容器内 `/config/.cache/camoufox-server/ws_endpoint`。
+
+固定 endpoint path：
+
+```bash
+CAMOUFOX_WS_PATH=/agents/camoufox docker compose up -d
+```
+
+此时 endpoint 为 `ws://0.0.0.0:1234/agents/camoufox`。也可以传 `agents/camoufox`，会自动补上开头的 `/`。path 不是认证凭据；即使使用难猜的 path，也不要把未认证的 Playwright 服务直接暴露到公网。
 
 Firefox 或 BrowserServer 在 endpoint 就绪后意外退出时，稳定 Python launcher 会清除旧 endpoint 并自动启动新实例；新实例会输出新的动态 endpoint。参数或 profile 权限错误仍立即失败，不会重试或回退。
 
