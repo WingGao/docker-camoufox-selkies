@@ -41,7 +41,10 @@ RUN set -eux; \
         libnss3 \
         python3 \
         python3-xdg \
-        python3-venv; \
+        python3-venv \
+        xfce4-panel \
+        xfconf \
+        xfwm4; \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /tmp/requirements.txt

@@ -1,15 +1,15 @@
-# Camoufox Selkies
+# docker-camoufox-selkies
 
-基于 LinuxServer Selkies 的 Docker 化 Camoufox/Firefox 环境。它同时提供可在浏览器中直接操作的 X11/Openbox 桌面和标准 Playwright BrowserServer WebSocket 接口，并可选择使用固定 Firefox profile。
+基于 LinuxServer Selkies 的 Docker 化 Camoufox/Firefox 环境。它同时提供可在浏览器中直接操作的 X11/Xfwm4 桌面和标准 Playwright BrowserServer WebSocket 接口，并可选择使用固定 Firefox profile。
 
 ## 架构
 
 ```text
-Web browser -> HTTPS :3001 -> Selkies -> X11/Openbox -> Camoufox
+Web browser -> HTTPS :3001 -> Selkies -> X11/Xfwm4 + Xfce Panel -> Camoufox
 External agent -> WebSocket :1234 -> Playwright BrowserServer -> Camoufox
 ```
 
-Selkies 负责 patched Xvfb、Openbox、视频、音频、键鼠、Unicode 剪贴板和 Nginx。本项目不会自行启动 Xvfb，也不包含 x11vnc、noVNC、websockify 或 Wayland。Camoufox 使用官方 Python package，Playwright 版本由 Camoufox 依赖约束决定。
+Selkies 负责 patched Xvfb、视频、音频、键鼠、Unicode 剪贴板和 Nginx；本项目在 X11 会话中使用 `xfwm4` 管理窗口，并使用 `xfce4-panel` 提供 Windows 式任务栏、窗口按钮和工作区切换。Xfce 面板的任务列表默认显示所有工作区的窗口且不合并窗口，便于在多个 Firefox 窗口之间切换。本项目不会自行启动 Xvfb，也不包含 x11vnc、noVNC、websockify 或 Wayland。Camoufox 使用官方 Python package，Playwright 版本由 Camoufox 依赖约束决定。
 
 BrowserServer 使用 Playwright 的 shared BrowserServer 分支，因此 Selkies 中的长期 Firefox context 与远程 Agent 连接可见的是同一 context。Agent 应优先复用 `browser.contexts[0]`，不要关闭这个长期 context；这样页面、cookie 和登录状态才能在持久化模式下跨连接和容器重建保留。
 
@@ -34,6 +34,30 @@ docker compose build --no-cache
 | `DEBIAN_MIRROR` | `https://mirrors.aliyun.com/debian` |
 | `DEBIAN_SECURITY_MIRROR` | `https://mirrors.aliyun.com/debian-security` |
 | `PIP_INDEX_URL` | `https://mirrors.aliyun.com/pypi/simple/` |
+
+也可以使用根目录的 `justfile` 构建和推送 Docker 镜像。默认镜像为
+`wingao/docker-camoufox-selkies:latest`：
+
+```bash
+just build
+just push
+```
+
+推送其他标签：
+
+```bash
+TAG=v1.0.0 just build
+TAG=v1.0.0 just push
+```
+
+也可以通过环境变量覆盖镜像名、标签和构建镜像源：
+
+```bash
+IMAGE=registry.example.com/camoufox TAG=2026.09 \
+  DEBIAN_MIRROR=https://deb.debian.org/debian \
+  PIP_INDEX_URL=https://pypi.org/simple \
+  just build
+```
 
 构建期间会通过 Camoufox 官方 package fetch API 下载浏览器 bundle，将其暴露为稳定路径 `/opt/camoufox/browser/camoufox-bin`，并严格 patch 实际安装的 Playwright driver。只下载浏览器，不在构建时访问 Mozilla 下载可选扩展。patch 无法唯一识别 Firefox profile 创建逻辑、静态校验失败或 Node 语法检查失败时，构建会直接失败。
 
@@ -111,7 +135,7 @@ chmod 700 profile
 | `CAMOUFOX_USER_DATA_DIR` | 空 | 固定 profile 的绝对路径 |
 | `CAMOUFOX_DEBUG` | `false` | 输出版本、可执行文件、DISPLAY 和 patch 路径诊断 |
 | `CAMOUFOX_STARTUP_TIMEOUT` | `120` | 等待 WebSocket endpoint 的秒数 |
-| `PIXELFLUX_WAYLAND` | `false` | 必须保持 false，使用 X11/Openbox |
+| `PIXELFLUX_WAYLAND` | `false` | 必须保持 false，使用 X11/Xfwm4 |
 | `PUID` / `PGID` | `1000` | LinuxServer 运行用户映射 |
 
 Compose 中可通过 `CAMOUFOX_PORT` 同时修改容器内监听端口，通过 `CAMOUFOX_HOST_PORT` 修改宿主机端口。例如：
@@ -287,7 +311,13 @@ docker compose exec camoufox id
 
 ### Autostart 修改没有生效
 
-Selkies 仅在第一次创建 `/config` 时把 `/defaults/autostart` 复制为 `/config/.config/openbox/autostart`，后续镜像更新不会覆盖已有文件。本项目保持该脚本仅调用稳定的 `/app/server_entrypoint.py`；应用逻辑更新无需修改 autostart。如旧配置来自其他镜像，应停止容器并删除对应的旧 `openbox/autostart` 后重新启动，操作前先备份 `/config`。
+Selkies 仅在第一次创建 `/config` 时把 `/defaults/autostart` 复制为 `/config/.config/openbox/autostart`，后续镜像更新不会覆盖已有文件。虽然桌面窗口管理器现在是 `xfwm4`，启动脚本仍从这个兼容路径读取应用 launcher。本项目保持该脚本仅调用稳定的 `/app/server_entrypoint.py`；应用逻辑更新无需修改 autostart。如旧配置来自其他镜像，应停止容器并删除对应的旧 `openbox/autostart` 后重新启动，操作前先备份 `/config`。
+
+### 多窗口切换
+
+桌面底部的 Xfce 面板任务列表显示 Camoufox 的每个窗口。点击窗口按钮可聚焦或最小化窗口，面板上的工作区切换器可在多个虚拟桌面之间切换。当前会话使用 `xfwm4`，因此 Firefox 新窗口、扩展 popup、最大化和焦点切换都由同一个 X11 窗口管理器处理。
+
+如果 `/config` 中已经存在旧的 Xfce 面板配置，面板会保留大部分用户配置；每次启动仍会确保任务列表位于底部，并自动隐藏发行版默认的第二个启动器栏。需要恢复系统默认布局时，可以删除容器内的 `/config/.config/xfce4` 后重启容器。该操作会删除面板和 Xfce 设置，不会删除 Firefox profile。
 
 ### 没有 WebSocket endpoint
 

@@ -8,7 +8,7 @@
 * Camoufox / Firefox
 * Playwright Remote Server / WebSocket 控制
 * LinuxServer Selkies WebUI
-* X11 + Openbox 图形环境
+* X11 + Xfwm4 + Xfce Panel 图形环境
 * 浏览器内鼠标、键盘正常操作
 * 中文 / Unicode 双向剪贴板
 * Firefox 扩展 popup 正常交互
@@ -42,7 +42,7 @@ Camoufox / Firefox
                     │ Audio          │
                     └───────┬────────┘
                             │
-                       X11 / Openbox
+                    X11 / Xfwm4 + Panel
                             │
                             ▼
                     ┌────────────────┐
@@ -95,7 +95,7 @@ FROM apify/actor-python-playwright-camoufox
 FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie
 ```
 
-LinuxServer 官方将该 baseimage 定位为构建 browser-accessible Linux GUI application 的基础镜像，并提供 X11/Openbox、Selkies、Nginx、音频、输入、GPU 检测等基础设施。([LinuxServer][1])
+LinuxServer 官方将该 baseimage 定位为构建 browser-accessible Linux GUI application 的基础镜像，并提供 X11/Openbox fallback、Selkies、Nginx、音频、输入、GPU 检测等基础设施。项目在该基础上使用自定义 `startwm.sh` 启动 Xfwm4 和 Xfce Panel。([LinuxServer][1])
 
 ---
 
@@ -108,7 +108,9 @@ Selkies
 +
 X11
 +
-Openbox
+Xfwm4
+
+Xfce Panel
 ```
 
 不要使用 Wayland。
@@ -123,7 +125,8 @@ Selkies 在该模式下会负责：
 
 ```text
 patched Xvfb
-Openbox
+Xfwm4
+Xfce Panel
 X11 input
 屏幕采集
 Web UI
@@ -134,13 +137,13 @@ Nginx
 
 因此项目本身不允许再次启动 Xvfb。
 
-LinuxServer 官方 X11 fallback 正是：
+LinuxServer 官方 X11 fallback 提供：
 
 ```text
 patched Xvfb + Openbox + Selkies
 ```
 
-并通过 `/defaults/autostart` 启动应用。([LinuxServer][1])
+本项目通过自定义 `/defaults/startwm.sh` 用 Xfwm4 替换 Openbox，并继续通过 `/defaults/autostart` 启动应用。([LinuxServer][1])
 
 ---
 
@@ -1758,7 +1761,7 @@ Firefox 中安装一个带 browserAction popup 的 extension。
 该测试用于确保：
 
 ```text
-Selkies input + Openbox + X11
+Selkies input + Xfwm4 + X11
 ```
 
 没有之前 x11vnc 输入链路的问题。
@@ -1960,7 +1963,7 @@ Selkies：
 [ ] 不包含 websockify
 [ ] 不使用 Apify baseimage
 
-[ ] Selkies X11/Openbox 模式正常
+[ ] Selkies X11/Xfwm4 + Xfce Panel 模式正常
 [ ] Camoufox headful 正常显示
 [ ] 中文字体正常
 [ ] Unicode clipboard 双向正常
@@ -1997,7 +2000,8 @@ Selkies：
 ```text
 Selkies
 X11
-Openbox
+Xfwm4
+Xfce Panel
 Camoufox headful
 WebUI
 ```
@@ -2110,7 +2114,7 @@ Camoufox launch options
 
 ## Reference context
 
-LinuxServer Selkies 当前明确将 `/config` 作为持久化 surface，并建议 downstream GUI application 通过 `/defaults/autostart` 在 X11/Openbox 或 Wayland/labwc session 中启动。([LinuxServer][1])
+LinuxServer Selkies 当前明确将 `/config` 作为持久化 surface，并建议 downstream GUI application 通过 `/defaults/autostart` 在 X11/Openbox 或 Wayland/labwc session 中启动。本项目的 `startwm.sh` 保留该 autostart 兼容路径，但实际使用 Xfwm4 和 Xfce Panel。([LinuxServer][1])
 
 Camoufox 官方当前支持 in-process API：
 
