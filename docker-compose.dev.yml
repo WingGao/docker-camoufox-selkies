@@ -1,6 +1,12 @@
 services:
   camoufox:
-    image: wingao/docker-camoufox-selkies:latest
+    build:
+      context: .
+      args:
+        DEBIAN_MIRROR: https://mirrors.aliyun.com/debian
+        DEBIAN_SECURITY_MIRROR: https://mirrors.aliyun.com/debian-security
+        PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+    image: wingao/docker-camoufox-selkies:dev
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -12,15 +18,13 @@ services:
       CAMOUFOX_PORT: "1234"
       CAMOUFOX_PASSWORD_MANAGER_ENABLED: "${CAMOUFOX_PASSWORD_MANAGER_ENABLED:-true}"
       CAMOUFOX_WS_PATH: "${CAMOUFOX_WS_PATH:-}"
-      CAMOUFOX_PERSISTENT_CONTEXT: "true"
-      CAMOUFOX_USER_DATA_DIR: /data/camoufox-profile
+      CAMOUFOX_PERSISTENT_CONTEXT: "false"
     volumes:
       - ./config:/config
-      - ./camoufox-profile:/data/camoufox-profile
     ports:
-      - "11040:3000"
-      - "11041:3001"
-      - "11042:1234"
+      - "3000:3000"
+      - "3001:3001"
+      - "1234:1234"
     shm_size: "2gb"
     healthcheck:
       test: ["CMD-SHELL", "test -s /config/.cache/camoufox-server/ws_endpoint && python3 -c 'import os,socket; socket.create_connection((\"127.0.0.1\", int(os.environ[\"CAMOUFOX_PORT\"])), 2).close()'"]

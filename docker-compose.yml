@@ -1,11 +1,6 @@
 services:
   camoufox:
-    build:
-      context: .
-      args:
-        DEBIAN_MIRROR: https://mirrors.aliyun.com/debian
-        DEBIAN_SECURITY_MIRROR: https://mirrors.aliyun.com/debian-security
-        PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+    image: wingao/docker-camoufox-selkies:latest
     environment:
       PUID: "1000"
       PGID: "1000"
