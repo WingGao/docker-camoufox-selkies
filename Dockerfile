@@ -63,6 +63,7 @@ RUN set -eux; \
 
 RUN set -eux; \
     XDG_CACHE_HOME=/opt /opt/camoufox-venv/bin/python /tmp/camoufox-scripts/install_camoufox_browser.py; \
+    /opt/camoufox-venv/bin/python /tmp/camoufox-scripts/configure_camoufox_policies.py; \
     /opt/camoufox-venv/bin/python /tmp/camoufox-scripts/patch_playwright_profile.py \
         --record-path /opt/camoufox/playwright-patch-path; \
     find /opt/camoufox-venv -name '*.pre-camoufox-patch' -delete; \
@@ -72,6 +73,7 @@ RUN set -eux; \
     test -s /opt/camoufox/playwright-patch-path
 
 COPY --chmod=0755 root/ /
+COPY --chmod=0755 scripts/configure_camoufox_policies.py /usr/local/bin/configure-camoufox-policies
 COPY --chown=root:root app/ /app/
 RUN set -eux; \
     NODE="$(/opt/camoufox-venv/bin/python -c 'from playwright._impl._driver import compute_driver_executable; print(compute_driver_executable()[0])')"; \
